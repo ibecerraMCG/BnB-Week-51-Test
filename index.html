@@ -2050,8 +2050,10 @@ document.addEventListener('keydown', e => {
 
 document.getElementById('sidebar-toggle').addEventListener('click', () => {
     const collapsed = document.getElementById('sidebar').classList.toggle('collapsed');
-    // remember the user's preference (shared across quiz pages)
-    localStorage.setItem('bb_quizSidebarCollapsed', collapsed ? 'true' : 'false');
+    // Only remember the choice on desktop; mobile always starts closed.
+    if (window.innerWidth > 820) {
+        localStorage.setItem('bb_quizSidebarCollapsed', collapsed ? 'true' : 'false');
+    }
 });
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -2153,8 +2155,13 @@ document.addEventListener('mouseup', () => {
     document.body.classList.toggle('show-lo', loOn);
     const loBtn = document.getElementById('lo-btn');
     loBtn.classList.toggle('on', loOn); loBtn.setAttribute('aria-pressed', loOn ? 'true' : 'false');
-    // question navigator sidebar: closed by default (desktop + mobile), remembers the user's choice
-    document.getElementById('sidebar').classList.toggle('collapsed', localStorage.getItem('bb_quizSidebarCollapsed') !== 'false');
+    // Question navigator sidebar: open by default on desktop (remembers your last choice),
+    // always closed on mobile so it doesn't cover the screen before you start.
+    if (window.innerWidth <= 820) {
+        document.getElementById('sidebar').classList.add('collapsed');
+    } else if (localStorage.getItem('bb_quizSidebarCollapsed') === 'true') {
+        document.getElementById('sidebar').classList.add('collapsed');
+    }
     // mode (sync both desktop + mobile switches)
     syncModeButtons();
     // render
