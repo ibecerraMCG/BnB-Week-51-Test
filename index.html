@@ -1896,6 +1896,16 @@ function changeTheme(name) {
 }
 themeSelect.addEventListener('change', e => changeTheme(e.target.value));
 { const tm = document.getElementById('theme-select-m'); if (tm) tm.addEventListener('change', e => changeTheme(e.target.value)); }
+// If "Custom" is already selected, re-clicking the dropdown fires no 'change' event, so
+// listen for mousedown to reopen the color pickers (matches the directory page behavior).
+themeSelect.addEventListener('mousedown', () => {
+    if (themeSelect.value === 'custom') {
+        customBuilder.classList.add('active');
+        document.getElementById('settings-panel').classList.remove('open');
+        document.getElementById('settings-btn').classList.remove('open');
+    }
+});
+{ const tm = document.getElementById('theme-select-m'); if (tm) tm.addEventListener('mousedown', () => { if (tm.value === 'custom') customBuilder.classList.add('active'); }); }
 
 function updateCustomTheme() {
     const bg = document.getElementById('color-bg').value;
@@ -1977,7 +1987,7 @@ function applyAccents(on) {
 document.addEventListener('click', e => {
     const sp = document.getElementById('settings-panel'), sb = document.getElementById('settings-btn');
     if (sp.classList.contains('open') && !sp.contains(e.target) && !sb.contains(e.target)) { sp.classList.remove('open'); sb.classList.remove('open'); }
-    if (customBuilder.classList.contains('active') && !customBuilder.contains(e.target) && !themeSelect.contains(e.target) && themeSelect.value !== 'custom') customBuilder.classList.remove('active');
+    if (customBuilder.classList.contains('active') && !customBuilder.contains(e.target) && !themeSelect.contains(e.target)) customBuilder.classList.remove('active');
 });
 
 /* ============================================================
