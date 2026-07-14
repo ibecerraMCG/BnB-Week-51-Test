@@ -1878,7 +1878,16 @@ function closeHelp() {
 const themeSelect = document.getElementById('theme-select');
 const customBuilder = document.getElementById('custom-builder');
 
-function changeTheme(name) {
+// Show the color pickers and close the settings panel so they're never hidden behind it.
+// (On mobile the theme dropdown lives inside settings, which is why the pickers were invisible there.)
+function openCustomPicker() {
+    customBuilder.classList.add('active');
+    document.getElementById('settings-panel').classList.remove('open');
+    document.getElementById('settings-btn').classList.remove('open');
+}
+// openPicker: true when the user actively picks a theme; false on page load (so the picker
+// doesn't pop up on every refresh — the custom colors are still applied either way).
+function changeTheme(name, openPicker) {
     localStorage.setItem('bb_quizTheme', name);
     // keep both desktop + mobile selects in sync
     if (themeSelect.value !== name) themeSelect.value = name;
@@ -1886,26 +1895,20 @@ function changeTheme(name) {
     if (tm && tm.value !== name) tm.value = name;
     if (name === 'custom') {
         root.removeAttribute('data-theme');
-        customBuilder.classList.add('active');
         loadCustomTheme();
+        if (openPicker) openCustomPicker(); else customBuilder.classList.remove('active');
     } else {
         root.setAttribute('data-theme', name);
         customBuilder.classList.remove('active');
         root.removeAttribute('style');
     }
 }
-themeSelect.addEventListener('change', e => changeTheme(e.target.value));
-{ const tm = document.getElementById('theme-select-m'); if (tm) tm.addEventListener('change', e => changeTheme(e.target.value)); }
+themeSelect.addEventListener('change', e => changeTheme(e.target.value, true));
+{ const tm = document.getElementById('theme-select-m'); if (tm) tm.addEventListener('change', e => changeTheme(e.target.value, true)); }
 // If "Custom" is already selected, re-clicking the dropdown fires no 'change' event, so
 // listen for mousedown to reopen the color pickers (matches the directory page behavior).
-themeSelect.addEventListener('mousedown', () => {
-    if (themeSelect.value === 'custom') {
-        customBuilder.classList.add('active');
-        document.getElementById('settings-panel').classList.remove('open');
-        document.getElementById('settings-btn').classList.remove('open');
-    }
-});
-{ const tm = document.getElementById('theme-select-m'); if (tm) tm.addEventListener('mousedown', () => { if (tm.value === 'custom') customBuilder.classList.add('active'); }); }
+themeSelect.addEventListener('mousedown', () => { if (themeSelect.value === 'custom') openCustomPicker(); });
+{ const tm = document.getElementById('theme-select-m'); if (tm) tm.addEventListener('mousedown', () => { if (tm.value === 'custom') openCustomPicker(); }); }
 
 function updateCustomTheme() {
     const bg = document.getElementById('color-bg').value;
@@ -1987,7 +1990,7 @@ function applyAccents(on) {
 document.addEventListener('click', e => {
     const sp = document.getElementById('settings-panel'), sb = document.getElementById('settings-btn');
     if (sp.classList.contains('open') && !sp.contains(e.target) && !sb.contains(e.target)) { sp.classList.remove('open'); sb.classList.remove('open'); }
-    if (customBuilder.classList.contains('active') && !customBuilder.contains(e.target) && !themeSelect.contains(e.target)) customBuilder.classList.remove('active');
+    { const tm = document.getElementById('theme-select-m'); if (customBuilder.classList.contains('active') && !customBuilder.contains(e.target) && !themeSelect.contains(e.target) && !(tm && tm.contains(e.target))) customBuilder.classList.remove('active'); }
 });
 
 /* ============================================================
@@ -2228,7 +2231,7 @@ document.addEventListener('mouseup', () => {
     themeSelect.value = savedTheme;
     const themeSelectM = document.getElementById('theme-select-m');
     if (themeSelectM) themeSelectM.value = savedTheme;
-    changeTheme(savedTheme);
+    changeTheme(savedTheme, false);   // apply saved theme WITHOUT popping the custom picker on load
     // shared header pin
     toggleHeader(localStorage.getItem('bb_headerPinned') !== 'false');
     // shared background + accents
