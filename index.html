@@ -1058,8 +1058,7 @@ const K = {
     hl:        'q_' + QUIZ_ID + '_hl',
     gradeTrack:'q_' + QUIZ_ID + '_gradeTrack',   // tutor live score tracker on/off
     snapshot:  'q_' + QUIZ_ID + '_snapshot',     // last exam grade (keeps the report visible)
-    retrySet:  'q_' + QUIZ_ID + '_retrySet',     // indices being retried (for the retry-results element)
-    autoSubmit:'q_' + QUIZ_ID + '_autoSubmit'    // tutor: auto-submit as soon as a choice is picked
+    retrySet:  'q_' + QUIZ_ID + '_retrySet'      // indices being retried (for the retry-results element)
 };
 
 const root = document.documentElement;
@@ -1073,7 +1072,7 @@ let highlights = load(K.hl, {});       // { qIndex: "<stem html with <mark>>" }
 let gradeTrack = localStorage.getItem(K.gradeTrack) === 'true';  // tutor live score tracker (default OFF)
 let gradedSnapshot = load(K.snapshot, null);   // last exam score; keeps the results card visible until reset
 let retrySet = load(K.retrySet, []);           // question indices from the active "Retry incorrect" pass
-let autoSubmit = localStorage.getItem(K.autoSubmit) === 'true';  // tutor: reveal as soon as a choice is picked
+let autoSubmit = localStorage.getItem('bb_autoSubmit') === 'true';  // SHARED across all quizzes (like theme): reveal as soon as a choice is picked
 
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; } }
 function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
@@ -1470,7 +1469,7 @@ function toggleFlag(index) {
 
 function toggleAutoSubmit(force) {
     autoSubmit = (typeof force === 'boolean') ? force : !autoSubmit;
-    localStorage.setItem(K.autoSubmit, autoSubmit ? 'true' : 'false');
+    localStorage.setItem('bb_autoSubmit', autoSubmit ? 'true' : 'false');
     const btn = document.getElementById('autosubmit-btn');
     if (btn) btn.setAttribute('aria-checked', autoSubmit ? 'true' : 'false');
 }
