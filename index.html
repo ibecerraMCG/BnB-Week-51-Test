@@ -699,6 +699,19 @@
     }
     .help-btn:hover { background: var(--bg-hover); border-color: var(--text-accent); transform: translateY(-1px); }
     .help-btn svg { display: block; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 1.1rem; }
+    .hero-actions .help-btn { margin-top: 0; }
+    .autosub-btn .autosub-box {
+        width: 15px; height: 15px; border-radius: 4px; border: 1.6px solid var(--border-color);
+        display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .autosub-btn[aria-checked="true"] { border-color: var(--text-accent); background: var(--bg-hover); color: var(--text-accent); }
+    .autosub-btn[aria-checked="true"] .autosub-box { background: var(--text-accent); border-color: var(--text-accent); }
+    .autosub-btn[aria-checked="true"] .autosub-box::after {
+        content: ''; width: 4px; height: 8px; border: solid var(--bg-card); border-width: 0 2px 2px 0;
+        transform: rotate(45deg); margin-top: -2px;
+    }
 
     #help-overlay {
         display: none; position: fixed; inset: 0; z-index: 500;
@@ -942,10 +955,16 @@
         <div class="quiz-hero">
             <div class="quiz-eyebrow">Brain &amp; Behavior · Week 51 · B&amp;B Week 1</div>
             <h1 class="quiz-title">Part 1 — Practice Quiz</h1>
-            <button id="help-btn" class="help-btn" onclick="openHelp()" aria-haspopup="dialog" title="How to use this quiz + keyboard shortcuts">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
-                Keyboard &amp; controls
-            </button>
+            <div class="hero-actions">
+                <button id="help-btn" class="help-btn" onclick="openHelp()" aria-haspopup="dialog" title="How to use this quiz + keyboard shortcuts">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
+                    Keyboard &amp; controls
+                </button>
+                <button id="autosubmit-btn" class="help-btn autosub-btn" role="switch" aria-checked="false" onclick="toggleAutoSubmit()" title="Auto-submit your answer the moment you pick a choice (Tutor mode)">
+                    <span class="autosub-box" aria-hidden="true"></span>
+                    Auto-submit answers
+                </button>
+            </div>
             <div class="quiz-meta">
                 <div class="qm"><span class="n" id="meta-q">0</span><span class="l">Questions</span></div>
                 <div class="qm"><span class="n" id="meta-sec">0</span><span class="l">Sections</span></div>
@@ -1013,6 +1032,7 @@
                 <h3>Modes &amp; tools</h3>
                 <p class="help-tip"><b>Tutor</b> grades each question the moment you submit it and shows the explanation. <b>Exam</b> hides feedback until you press <b>Submit &amp; grade quiz</b> at the end.</p>
                 <p class="help-tip">Turn on <b>Grade</b> (Tutor only) for a live running score, and use <b>LOs</b> to reveal learning objectives. (See the <b>Question navigator</b> section above for jumping between questions and resetting.)</p>
+                <p class="help-tip">Turn on <b>Auto-submit answers</b> (top of the page, Tutor mode) to reveal feedback the instant you pick a choice — no need to press Submit each time.</p>
             </div>
         </div>
     </div>
@@ -1038,7 +1058,8 @@ const K = {
     hl:        'q_' + QUIZ_ID + '_hl',
     gradeTrack:'q_' + QUIZ_ID + '_gradeTrack',   // tutor live score tracker on/off
     snapshot:  'q_' + QUIZ_ID + '_snapshot',     // last exam grade (keeps the report visible)
-    retrySet:  'q_' + QUIZ_ID + '_retrySet'      // indices being retried (for the retry-results element)
+    retrySet:  'q_' + QUIZ_ID + '_retrySet',     // indices being retried (for the retry-results element)
+    autoSubmit:'q_' + QUIZ_ID + '_autoSubmit'    // tutor: auto-submit as soon as a choice is picked
 };
 
 const root = document.documentElement;
@@ -1052,6 +1073,7 @@ let highlights = load(K.hl, {});       // { qIndex: "<stem html with <mark>>" }
 let gradeTrack = localStorage.getItem(K.gradeTrack) === 'true';  // tutor live score tracker (default OFF)
 let gradedSnapshot = load(K.snapshot, null);   // last exam score; keeps the results card visible until reset
 let retrySet = load(K.retrySet, []);           // question indices from the active "Retry incorrect" pass
+let autoSubmit = localStorage.getItem(K.autoSubmit) === 'true';  // tutor: reveal as soon as a choice is picked
 
 function load(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; } }
 function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
@@ -1425,6 +1447,9 @@ function selectOption(index, key) {
     // If this question was already submitted in tutor mode, re-grade instantly.
     if (mode === 'tutor' && submitted[index]) {
         revealAnswer(index);
+    } else if (mode === 'tutor' && autoSubmit && !submitted[index]) {
+        submitOne(index);   // auto-submit: reveal feedback immediately on selection
+        return;             // submitOne already refreshes the nav cell, progress and tracker
     }
     updateNavCell(index);
     updateProgress();
@@ -1441,6 +1466,13 @@ function toggleFlag(index) {
     if (txt) txt.textContent = flags[index] ? 'Flagged' : 'Flag';
     updateNavCell(index);
     updateProgress();
+}
+
+function toggleAutoSubmit(force) {
+    autoSubmit = (typeof force === 'boolean') ? force : !autoSubmit;
+    localStorage.setItem(K.autoSubmit, autoSubmit ? 'true' : 'false');
+    const btn = document.getElementById('autosubmit-btn');
+    if (btn) btn.setAttribute('aria-checked', autoSubmit ? 'true' : 'false');
 }
 
 /* ============================================================
@@ -1534,6 +1566,8 @@ function setMode(newMode) {
 function applyModeUI() {
     const isTutor = mode === 'tutor';
     document.getElementById('meta-mode').textContent = isTutor ? 'Tutor' : 'Exam';
+    const asBtn = document.getElementById('autosubmit-btn');
+    if (asBtn) asBtn.classList.toggle('hidden', !isTutor);
     document.getElementById('mode-hint-text').textContent = isTutor
         ? 'Tutor mode: submit each question to see the answer and explanation right away.'
         : 'Exam mode: answer everything, then press Finish to grade. Explanations unlock after grading.';
@@ -2255,6 +2289,9 @@ document.addEventListener('mouseup', () => {
     }
     // mode (sync both desktop + mobile switches)
     syncModeButtons();
+    // auto-submit toggle (tutor only): reflect saved state + hide in exam mode
+    toggleAutoSubmit(autoSubmit);
+    document.getElementById('autosubmit-btn').classList.toggle('hidden', mode !== 'tutor');
     // render
     renderQuiz();
     // tutor live score tracker + persistent exam report
