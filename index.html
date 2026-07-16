@@ -816,6 +816,10 @@
         body.mode-tutor .brand-text { display: none; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } html { scroll-behavior: auto; } }
+    /* Reset buttons (top pill + two-click confirm) */
+    .reset-btn { color: #f87171; border-color: rgba(248,113,113,0.5); }
+    .reset-btn:hover { background: #f87171; color: #fff; border-color: #f87171; }
+    .reset-armed, .reset-armed:hover { background: #f87171 !important; color: #fff !important; border-color: #f87171 !important; }
 </style>
 </head>
 
@@ -948,7 +952,7 @@
             <div class="legend-item legend-graded" style="display:none"><span class="legend-swatch incorrect"></span> Incorrect</div>
         </div>
         <div class="nav-tools">
-            <button id="reset-quiz-btn" class="nav-tool-btn danger" onclick="resetQuiz()">
+            <button id="reset-quiz-btn" class="nav-tool-btn danger" onclick="resetQuizClick(this)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
                 Reset quiz
             </button>
@@ -972,6 +976,10 @@
                     <span class="autosub-box" aria-hidden="true"></span>
                     Auto-submit answers
                 </button>
+                <button id="reset-top-btn" class="help-btn reset-btn" onclick="resetQuizClick(this)" title="Reset this quiz — clears your answers, flags, eliminations and highlights">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                    Reset quiz
+                </button>
             </div>
             <div class="quiz-meta">
                 <div class="qm"><span class="n" id="meta-q">0</span><span class="l">Questions</span></div>
@@ -987,7 +995,11 @@
 
         <div class="quiz-end hidden" id="quiz-end">
             <button class="btn-finish" id="finish-btn" onclick="finishQuiz()">Submit &amp; grade quiz</button>
-            <button class="results-btn danger-outline" onclick="resetQuiz()">Reset quiz</button>
+            <button class="results-btn danger-outline" onclick="resetQuizClick(this)">Reset quiz</button>
+        </div>
+
+        <div class="quiz-end hidden" id="quiz-end-tutor">
+            <button class="results-btn danger-outline" onclick="resetQuizClick(this)">Reset quiz</button>
         </div>
 
         <div class="quiz-return">
@@ -1589,6 +1601,8 @@ function applyModeUI() {
     // end-of-quiz submit block only in exam mode, before grading
     const endBlock = document.getElementById('quiz-end');
     endBlock.classList.toggle('hidden', isTutor || graded);
+    const endBlockTutor = document.getElementById('quiz-end-tutor');
+    if (endBlockTutor) endBlockTutor.classList.toggle('hidden', !isTutor);
     // legend graded rows
     document.querySelectorAll('.legend-graded').forEach(el => el.style.display = (mode === 'exam' && !graded) ? 'none' : '');
 }
@@ -1683,7 +1697,7 @@ function renderResults(snap) {
         <div class="results-actions">
             <button class="results-btn primary" onclick="reviewAll()">Review explanations</button>
             <button class="results-btn" onclick="retryIncorrect()">Retry incorrect</button>
-            <button class="results-btn danger-outline" onclick="resetQuiz()">Reset quiz</button>
+            <button class="results-btn danger-outline" onclick="resetQuizClick(this)">Reset quiz</button>
             <a class="results-btn" href="https://ibecerramcg.github.io/BnB-Practice-Quizzes/">Back to directory</a>
         </div>`;
     card.classList.add('show');
@@ -1750,11 +1764,43 @@ function reviewAll() {
     document.getElementById('q-card-0').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+/* Two-click reset: first click arms the button ("Click again to confirm");
+   a second click within a few seconds runs the reset. No blocking pop-up.
+   Clicking anywhere else — or waiting — quietly cancels. */
+let _resetArmed = null, _resetTimer = null;
+function _disarmReset() {
+    if (_resetTimer) { clearTimeout(_resetTimer); _resetTimer = null; }
+    if (_resetArmed) {
+        const b = _resetArmed;
+        if (b._origHTML != null) { b.innerHTML = b._origHTML; b._origHTML = null; }
+        b.classList.remove('reset-armed');
+        b.removeAttribute('aria-live');
+        _resetArmed = null;
+    }
+    document.removeEventListener('click', _resetOutside, true);
+}
+function _resetOutside(e) {
+    const onBtn = e.target.closest && e.target.closest('button');
+    if (_resetArmed && onBtn !== _resetArmed) _disarmReset();
+}
+function resetQuizClick(btn) {
+    if (_resetArmed === btn) { _disarmReset(); doResetQuiz(); return; }
+    _disarmReset();
+    _resetArmed = btn;
+    btn._origHTML = btn.innerHTML;
+    btn.classList.add('reset-armed');
+    btn.setAttribute('aria-live', 'polite');
+    btn.innerHTML = 'Click again to confirm';
+    _resetTimer = setTimeout(_disarmReset, 4000);
+    // Capture-phase listener: it won't fire for the current (arming) click,
+    // but cancels the pending confirm on the next click anywhere else.
+    document.addEventListener('click', _resetOutside, true);
+}
+
 /* Reset everything for this quiz — usable any time (settings menu, end of
    quiz, or results). Clears local answers/flags/submissions; the saved
    directory score is left in place unless it's re-graded. */
-function resetQuiz() {
-    if (!confirm('Reset this quiz? This clears your answers, flags, eliminations and highlights so you can start fresh.')) return;
+function doResetQuiz() {
     answers = {}; flags = {}; submitted = {}; graded = false; strikes = {}; highlights = {};
     save(K.answers, answers); save(K.flags, flags); save(K.submitted, submitted);
     save(K.strikes, strikes); save(K.hl, highlights);
