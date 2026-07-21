@@ -2394,7 +2394,7 @@ function bbSetLayout(v) { try { localStorage.setItem('bb_layout', v); } catch (e
     const styleSel = document.getElementById('bg-style-select');
     if (styleSel) styleSel.value = savedStyle;
     window.bgFx && window.bgFx.setStyle(savedStyle);
-    applyBackground(localStorage.getItem('bb_bgEnabled') !== 'false');
+    applyBackground(localStorage.getItem('bb_bgEnabled') === 'true');
     applyAccents(localStorage.getItem('bb_accentsEnabled') !== 'false');
     // LO visibility (quiz-local; default OFF)
     const loOn = localStorage.getItem(K.showLO) === 'true';
